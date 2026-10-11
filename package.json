@@ -1,0 +1,37 @@
+{
+  "name": "digital-command-center",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit",
+    "lint": "eslint",
+    "test": "node --test tests/*.test.mjs",
+    "test:browser": "playwright test",
+    "preflight": "node scripts/preflight.mjs",
+    "secrets:init": "node scripts/init-secrets.mjs"
+  },
+  "dependencies": {
+    "@next/env": "16.3.6",
+    "google-auth-library": "^10.5.0",
+    "lucide-react": "^0.577.0",
+    "next": "16.3.6",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "1.63.0",
+    "@types/node": "^24",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.3.6",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
