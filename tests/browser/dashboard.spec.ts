@@ -28,6 +28,7 @@ test("every dashboard and data endpoint requires authentication", async ({
     await page.goto(path);
     await expect(page).toHaveURL(/\/login$/);
   }
+  expect((await request.get("/", { maxRedirects: 0 })).status()).toBe(307);
   expect((await request.get("/api/sites")).status()).toBe(401);
   expect((await request.post("/api/sites", { data: {} })).status()).toBe(401);
   expect((await request.get("/api/cron")).status()).toBe(401);

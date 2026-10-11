@@ -6,7 +6,7 @@ The dashboard provides a portfolio overview, a detail page for each website, day
 
 ## Run
 
-Node 22 or newer (validated with Node 24). Each cloud task is already isolated; use this checkout without creating a worktree unless explicitly requested.
+Node 24.5+ LTS (validated with Node 24.19). Cloud startup uses Node’s supported environment-proxy flag; TLS verification remains enabled. Each cloud task is already isolated; use this checkout without creating a worktree unless explicitly requested.
 
 ```sh
 npm ci
