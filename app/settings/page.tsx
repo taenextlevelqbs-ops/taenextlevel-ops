@@ -95,7 +95,11 @@ export default async function Settings({
       </div>
       <div className="integration-grid">
         {integrations.map((p) => {
-          const configured = p.variables.every((name) => !!process.env[name]);
+          const configured = p.variables.every(
+            (name) =>
+              !!process.env[name] ||
+              (name === "COMMAND_GITHUB_TOKEN" && !!process.env.GH_TOKEN),
+          );
           return (
             <section className="panel integration-card" key={p.name}>
               <div className="integration-top">
