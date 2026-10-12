@@ -173,6 +173,22 @@ test("login checks credentials, throttle and provider failures before creating s
     ).status,
     503,
   );
+  const throttleFailure = await login(
+    request({ email, password: "test-only-password" }),
+    env,
+    async () => {
+      throw new Error("must not be logged");
+    },
+  );
+  assert.equal(throttleFailure.diagnostic, "login_rate_limit_unavailable");
+  const authFailure = await login(
+    request({ email, password: "test-only-password" }),
+    env,
+    async () => true,
+    async () => new Response("private provider response", { status: 503 }),
+  );
+  assert.equal(authFailure.diagnostic, "supabase_auth_http_503");
+  assert.equal(JSON.stringify(authFailure).includes("private provider response"), false);
   const result = await login(
     request({ email, password: "test-only-password" }),
     env,
