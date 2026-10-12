@@ -17,6 +17,8 @@
 4. For CLI deployment under the existing team, authenticate securely and use `vercel --scope taenextlevelqbs-ops --prod` from the repository root after `npm run preflight` and all checks pass. No Vercel account is authenticated in the current cloud machine. An unclaimed temporary deployment is not used.
 5. After deployment, check `/api/health`, verify anonymous dashboard requests redirect to `/login`, verify the Supabase owner account can sign in and out, save a registry site, trigger the authenticated cron without exposing its bearer token, and verify persisted monitoring samples and previous-day metric snapshots. Do not declare production readiness until these pass.
 
+If sign-in returns HTTP 503, the server writes a stage-only diagnostic to the Vercel function log: `login_rate_limit_unavailable` identifies the protected login-throttle RPC; `supabase_auth_http_<status>` identifies an HTTP response from Supabase Auth; and `supabase_auth_network_or_response_error` identifies a failed Auth request or invalid response. These messages contain no account input, request body, credential, or provider response. Use them to check the corresponding encrypted database or Auth configuration; do not disable the shared throttle or owner checks.
+
 The daily cron archives each website's real previous-day aggregate measurements, with unavailable fields retained as null and source/reason metadata. Snapshot upserts are idempotent per site/day. Individual records, passwords, tokens, email contents and PHI are never archived. GA4 may finalize data later; a previous-day archive can lag provider-reported totals. Monthly unique users must still come from GA4, since daily unique users cannot be summed into monthly unique people.
 
 ## Google Analytics
