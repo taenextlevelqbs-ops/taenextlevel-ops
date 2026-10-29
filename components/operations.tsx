@@ -532,7 +532,7 @@ export function OperationsView({
                     : novaRow?.deployment.deployments[0]?.state || null
                 }
                 note={
-                  novaRow?.deployment.deployments[0]?.date
+                  ops.nova.status==='Connected' && ops.nova.commit ? `Serving commit ${ops.nova.commit.slice(0,10)} · NOVA status API` : novaRow?.deployment.deployments[0]?.date
                     ? when(novaRow.deployment.deployments[0].date)
                     : "Vercel data is unavailable"
                 }
