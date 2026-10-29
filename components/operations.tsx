@@ -10,7 +10,12 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { businessTools } from "@/lib/operations.mjs";
-import type { DashboardData, Row, OperationsData } from "@/lib/types";
+import type {
+  DashboardData,
+  Row,
+  OperationsData,
+  PaymentConnection,
+} from "@/lib/types";
 import { InstallApp } from "./install-app";
 type Operations = OperationsData;
 function money(amount: number, currency = "usd") {
@@ -91,7 +96,7 @@ function BookingList({ data }: { data: Operations["bookings"] }) {
         ))}
     </div>
   ) : (
-    <Empty reason="No upcoming Calendly sessions in the next 30 days." />
+    <Empty reason="No upcoming sessions in the next 30 days." />
   );
 }
 function PaymentList({ data }: { data: Operations["coachPayments"] }) {
@@ -174,6 +179,50 @@ export function collectAlerts(data: DashboardData, ops: Operations) {
         kind: "Review",
       });
   }
+  for (const report of ops.jobs || []) {
+    if (report.status !== "Connected") {
+      alerts.push({
+        title: `${report.id}: job monitoring unavailable`,
+        detail: report.reason || "GitHub Actions unavailable",
+        href: `/sites/${report.id}`,
+        kind: "Connection needed",
+      });
+      continue;
+    }
+    const latest = new Map<string, (typeof report.items)[number]>();
+    for (const run of report.items)
+      if (!latest.has(run.workflowId)) latest.set(run.workflowId, run);
+    for (const run of latest.values())
+      if (
+        ["failure", "timed_out", "action_required", "startup_failure"].includes(
+          run.state,
+        )
+      )
+        alerts.push({
+          title: `${report.id}: ${run.title}`,
+          detail: `Latest observed workflow state: ${run.state} · ${when(run.date)}`,
+          href: run.url,
+          kind: "Failure",
+        });
+  }
+  for (const h of ops.health || [])
+    if (h.status === "down")
+      alerts.push({
+        title: `${h.id}: website returned HTTP ${h.httpStatus}`,
+        detail: `Checked ${when(h.checkedAt)}`,
+        href: `/sites/${h.id}`,
+        kind: "Failure",
+      });
+  const notifications = ops.coachNative?.records.jobs;
+  if (notifications?.status === "Connected")
+    for (const job of notifications.items)
+      if (job.last_error && !job.completed_at)
+        alerts.push({
+          title: `Coach Tae: ${job.kind} delivery needs attention`,
+          detail: `${job.attempts} delivery attempts recorded. Review the coach notification queue.`,
+          href: "https://coachtaeqb.com/coach",
+          kind: "Failure",
+        });
   for (const row of data.rows) {
     if ((row.metrics.buildFailures?.value || 0) > 0)
       alerts.push({
@@ -229,7 +278,29 @@ function BusinessCard({
     </section>
   );
 }
-function Revenue({ row }: { row?: Row }) {
+function Revenue({ row, report }: { row?: Row; report?: PaymentConnection }) {
+  if (report?.status === "Unavailable")
+    return (
+      <Stat
+        label="Revenue · last 30 days"
+        value={null}
+        note="Live Stripe reporting unavailable"
+      />
+    );
+  if (report?.status === "Connected" && report.livemode && report.amounts)
+    return (
+      <Stat
+        label="Revenue · last 30 days"
+        value={
+          report.amounts.length
+            ? report.amounts
+                .map((a) => money(a.minorUnits, a.currency))
+                .join(" / ")
+            : money(0)
+        }
+        note={`Captured charges less refunds · ${report.accountId}`}
+      />
+    );
   return (
     <Stat
       label="Revenue · last 30 days"
@@ -259,6 +330,7 @@ export function OperationsView({
     coach = data.rows.find((r) => r.site.id === "coach-tae"),
     dmv = data.rows.find((r) => r.site.id === "dmv-attack");
   const novaRow = data.rows.find((r) => r.site.id === "nova");
+  const novaLive = ops.health?.find((h) => h.id === "nova");
   const title: Record<string, string> = {
     overview: "Your business. Within reach.",
     businesses: "Built to move your businesses.",
@@ -297,7 +369,7 @@ export function OperationsView({
                     ? ops.bookings.items.length
                     : "—"}
                 </strong>
-                <small>Next 30 days · Calendly</small>
+                <small>Next 30 days · training schedule</small>
               </span>
             </Link>
             <Link href="/businesses#dmv-attack">
@@ -336,7 +408,7 @@ export function OperationsView({
             tag="01 / QUARTERBACK TRAINING"
           >
             <div className="ops-stat-grid">
-              <Revenue row={coach} />
+              <Revenue row={coach} report={ops.coachPayments} />
               <Stat
                 label="Upcoming sessions"
                 value={
@@ -344,15 +416,14 @@ export function OperationsView({
                     ? ops.bookings.items.length
                     : null
                 }
-                note="Calendly · next 30 days"
+                note="Native schedule · next 30 days"
               />
             </div>
             <h3>Training schedule</h3>
             <BookingList data={ops.bookings} />
             <p className="ops-caption">
-              Manage native athlete records in Coach administration and Calendly
-              invitees in Calendly. Native athlete data is not connected to this
-              dashboard.
+              Manage booking changes in Coach administration. Preserved
+              appointments appear as occupied times.
             </p>
           </BusinessCard>
           <div id="dmv-attack">
@@ -374,7 +445,8 @@ export function OperationsView({
                 <Stat
                   label="Outstanding team fees"
                   value={
-                    ops.records.status === "Connected"
+                    ops.records.status === "Connected" &&
+                    ops.records.feesStatus !== "Unavailable"
                       ? money(
                           ops.records.fees.reduce(
                             (sum: number, f: { outstanding: number }) =>
@@ -424,7 +496,7 @@ export function OperationsView({
                   </p>
                 </>
               )}
-              <Revenue row={dmv} />
+              <Revenue row={dmv} report={ops.dmvPayments} />
             </BusinessCard>
           </div>
           <BusinessCard
@@ -435,13 +507,35 @@ export function OperationsView({
             <div className="ops-stat-grid">
               <Stat
                 label="Website uptime"
-                value={novaRow?.health.status === "unknown" ? null : novaRow?.health.status || null}
-                note={novaRow?.health.checkedAt ? `Last probe ${when(novaRow.health.checkedAt)}` : "No measured uptime samples"}
+                value={
+                  novaLive
+                    ? novaLive.status === "unknown"
+                      ? null
+                      : novaLive.status
+                    : novaRow?.health.status === "unknown"
+                      ? null
+                      : novaRow?.health.status || null
+                }
+                note={
+                  novaLive
+                    ? `Live check ${when(novaLive.checkedAt)}`
+                    : novaRow?.health.checkedAt
+                      ? `Last probe ${when(novaRow.health.checkedAt)}`
+                      : "No measured uptime samples"
+                }
               />
               <Stat
                 label="Latest deployment"
-                value={novaRow?.deployment.deployments[0]?.state || null}
-                note={novaRow?.deployment.deployments[0]?.date ? when(novaRow.deployment.deployments[0].date) : "Vercel data is unavailable"}
+                value={
+                  ops.nova.status === "Connected" && ops.nova.commit
+                    ? "Serving"
+                    : novaRow?.deployment.deployments[0]?.state || null
+                }
+                note={
+                  novaRow?.deployment.deployments[0]?.date
+                    ? when(novaRow.deployment.deployments[0].date)
+                    : "Vercel data is unavailable"
+                }
               />
               <Stat
                 label="Verified football finals"
@@ -547,7 +641,7 @@ export function OperationsView({
               title="Coach Tae"
               tag="TRAINING PAYMENTS"
             >
-              <Revenue row={coach} />
+              <Revenue row={coach} report={ops.coachPayments} />
               <PaymentList data={ops.coachPayments} />
             </BusinessCard>
             <BusinessCard
@@ -555,12 +649,13 @@ export function OperationsView({
               title="DMV Attack"
               tag="TEAM & TRYOUT PAYMENTS"
             >
-              <Revenue row={dmv} />
+              <Revenue row={dmv} report={ops.dmvPayments} />
               <PaymentList data={ops.dmvPayments} />
               <Stat
                 label="Outstanding team fees"
                 value={
-                  ops.records.status === "Connected"
+                  ops.records.status === "Connected" &&
+                  ops.records.feesStatus !== "Unavailable"
                     ? money(
                         ops.records.fees.reduce(
                           (sum: number, f: { outstanding: number }) =>
@@ -607,6 +702,219 @@ export function OperationsView({
             </Link>
           )}
         </section>
+      )}
+      {(view === "overview" || view === "businesses") && (
+        <>
+          <section className="ops-card">
+            <div className="ops-section-title">
+              <h2>Coach Tae · athletes & booking operations</h2>
+              <a
+                href="https://coachtaeqb.com/coach"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open coach panel ↗
+              </a>
+            </div>
+            {ops.coachNative?.status === "Connected" ? (
+              <>
+                <p className="ops-caption">
+                  Native booking is{" "}
+                  {ops.coachNative.bookingEnabled
+                    ? "open"
+                    : "closed pending cutover verification"}
+                  . Source: existing Coach Tae Supabase records.
+                </p>
+                {ops.coachNative.records.athletes?.status === "Connected" ? (
+                  <>
+                    <Stat
+                      label="Athlete profiles"
+                      value={ops.coachNative.records.athletes.items.length}
+                      note="Native family athletes"
+                    />
+                    <div className="athlete-list">
+                      {ops.coachNative.records.athletes.items.map((a) => (
+                        <p key={String(a.id)}>
+                          {String(a.name)}
+                          {a.graduation_year
+                            ? ` · Class of ${a.graduation_year}`
+                            : ""}
+                        </p>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <Empty
+                    reason={
+                      ops.coachNative.records.athletes?.reason ||
+                      "Athlete data unavailable"
+                    }
+                  />
+                )}
+                <div className="ops-stat-grid">
+                  {["confirmed", "held", "cancelled", "expired"].map(
+                    (status) => (
+                      <Stat
+                        key={status}
+                        label={`${status.charAt(0).toUpperCase() + status.slice(1)} bookings`}
+                        value={
+                          ops.coachNative?.records.bookings?.status ===
+                          "Connected"
+                            ? ops.coachNative.records.bookings.items.filter(
+                                (b) => b.status === status,
+                              ).length
+                            : null
+                        }
+                        note="All recorded native bookings"
+                      />
+                    ),
+                  )}
+                </div>
+              </>
+            ) : (
+              <Empty
+                reason={
+                  ops.coachNative?.reason ||
+                  "Native athlete integration is unavailable."
+                }
+              />
+            )}
+          </section>
+          <section className="ops-card">
+            <div className="ops-section-title">
+              <h2>DMV Attack · team rosters</h2>
+              <a
+                href="https://dmvattack.com/admin/teams"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Manage rosters ↗
+              </a>
+            </div>
+            {ops.records.status === "Connected" &&
+            ops.records.rostersStatus === "Connected" ? (
+              ops.records.teams.map((t) => (
+                <details className="nova-review" key={t.id}>
+                  <summary>
+                    {t.name} · {t.age_group} · {t.season}
+                  </summary>
+                  <div className="athlete-list">
+                    {ops.records.status === "Connected" &&
+                      ops.records.rosters
+                        ?.filter((r) => r.team_id === t.id)
+                        .map((r) => {
+                          const a =
+                            ops.records.status === "Connected"
+                              ? ops.records.items.find(
+                                  (a) => a.id === r.tryout_submission_id,
+                                )
+                              : undefined;
+                          return (
+                            <p key={r.id}>
+                              {a
+                                ? `${a.athlete_first_name} ${a.athlete_last_name}`
+                                : "Athlete record unavailable"}{" "}
+                              · {r.roster_status}
+                            </p>
+                          );
+                        })}
+                  </div>
+                </details>
+              ))
+            ) : (
+              <Empty reason="Team assignment data is unavailable. Open the existing roster panel." />
+            )}
+            {ops.records.status === "Connected" &&
+              ops.records.feesStatus === "Unavailable" && (
+                <Empty
+                  reason={
+                    ops.records.feesReason ||
+                    "Fee ledger unavailable; outstanding totals are withheld."
+                  }
+                />
+              )}
+          </section>
+          <section className="ops-card">
+            <div className="ops-section-title">
+              <h2>Crestlane Digital</h2>
+              <a
+                href="https://crestlanedigital.com/portal"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open workspace ↗
+              </a>
+            </div>
+            {ops.crestlane?.records.projects?.status === "Connected" ? (
+              <div className="event-list">
+                {ops.crestlane.records.projects.items.length ? (
+                  ops.crestlane.records.projects.items.map((p) => (
+                    <div key={String(p.id)}>
+                      <strong>{String(p.title)}</strong>
+                      <span className="ops-badge">{String(p.status)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="ops-caption">
+                    No projects recorded in the connected project database.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <Empty
+                reason={
+                  ops.crestlane?.records.projects?.reason ||
+                  ops.crestlane?.reason ||
+                  "Crestlane project records are not connected."
+                }
+              />
+            )}
+            <p className="ops-caption">
+              Client website assignments require a configured project source.
+              Portfolio website reporting remains available below.
+            </p>
+          </section>
+          <section className="ops-card">
+            <h2>Production health</h2>
+            <p className="ops-caption">
+              Current HTTP checks and deployment identity from each serving
+              business app. Historical Vercel build failures require Vercel API
+              read access.
+            </p>
+            <div className="payment-list">
+              {ops.health?.map((h) => (
+                <div key={h.id}>
+                  <span>
+                    <strong>
+                      {data.sites.find((s) => s.id === h.id)?.name || h.id}
+                    </strong>
+                    <small>
+                      {when(h.checkedAt)} ·{" "}
+                      {h.responseMs === null
+                        ? "No measured response"
+                        : `${h.responseMs} ms`}
+                    </small>
+                  </span>
+                  <span
+                    className={`ops-badge ${h.status === "up" ? "good" : "warn"}`}
+                  >
+                    {h.status}
+                    {h.httpStatus ? ` · HTTP ${h.httpStatus}` : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {[ops.coachNative, ops.dmvNative, ops.crestlane]
+              .filter((b) => b?.deployment)
+              .map((b) => (
+                <p key={b?.business} className="ops-caption">
+                  {b?.business}: {b?.deployment?.environment} ·{" "}
+                  {b?.deployment?.status} · commit{" "}
+                  {b?.deployment?.commit?.slice(0, 10) || "unavailable"}
+                </p>
+              ))}
+          </section>
+        </>
       )}
       <div className="ops-bottom-links">
         <Link href="/sites">

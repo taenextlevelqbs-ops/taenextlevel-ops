@@ -2792,3 +2792,5 @@ code {
   padding: 14px 0;
   font-size: 12px;
 }
+.manual-refresh{position:fixed;right:18px;top:13px;z-index:45;min-height:44px;display:flex;align-items:center;gap:7px;padding:10px 13px;background:#252b2e;border:1px solid #565d60;border-radius:9px;color:var(--text);font-size:12px}.topbar-right{margin-right:110px}
+@media(max-width:700px){.manual-refresh{top:auto;bottom:calc(82px + env(safe-area-inset-bottom));right:16px;box-shadow:0 4px 20px #0009}.topbar-right{margin-right:0}}

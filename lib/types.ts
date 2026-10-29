@@ -111,6 +111,8 @@ export type PaymentConnection = Connection<{
   }[];
   accountId: string;
   hasMore: boolean;
+  livemode?: boolean;
+  amounts?: { currency: string; minorUnits: number }[];
 }>;
 export type OperationsData = {
   bookings: Connection<{ items: CalendarEvent[] }>;
@@ -131,10 +133,20 @@ export type OperationsData = {
       season: string;
       active: boolean;
     }[];
+    feesStatus?: string;
+    feesReason?: string | null;
+    rosters?: {
+      id: string;
+      team_id: string;
+      tryout_submission_id: string;
+      roster_status: string;
+    }[];
+    rostersStatus?: string;
     fees: { id: string; outstanding: number }[];
   }>;
   nova: Connection<{
     items: never[];
+    commit?: string | null;
     finals: number;
     overdue: number;
     calculatedAt: string;
@@ -144,5 +156,52 @@ export type OperationsData = {
     playoff: { regions: number; ratedSchools: number };
     officialSeedsVerified: boolean;
   }>;
+  coachNative?: BusinessSnapshot;
+  dmvNative?: BusinessSnapshot;
+  crestlane?: BusinessSnapshot;
+  health?: {
+    id: string;
+    status: string;
+    httpStatus: number | null;
+    responseMs: number | null;
+    checkedAt: string;
+  }[];
+  jobs?: {
+    id: string;
+    status: string;
+    reason: string | null;
+    items: {
+      id: string;
+      workflowId: string;
+      title: string;
+      state: string;
+      url: string;
+      date: string;
+    }[];
+    measuredAt: string | null;
+  }[];
   tournaments: CalendarEvent[];
+};
+
+export type BusinessSnapshot = {
+  business: string;
+  status: string;
+  reason: string | null;
+  bookingEnabled?: boolean;
+  collectedAt?: string;
+  deployment?: {
+    status: string;
+    commit: string | null;
+    environment: string;
+    url: string | null;
+  };
+  records: Record<
+    string,
+    {
+      status: string;
+      reason: string | null;
+      items: Record<string, string | number | boolean | null>[];
+      measuredAt: string | null;
+    }
+  >;
 };
