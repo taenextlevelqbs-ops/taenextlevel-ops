@@ -1,0 +1,17 @@
+# Business operations connections
+
+This dashboard preserves the existing owner authentication, dedicated Command Center database, website reporting, and public business systems. No business-site migration or deployment is required.
+
+Coach Tae uses its own `COACH_TAE_CALENDLY_TOKEN` and `COACH_TAE_CALENDLY_USER_URI` for upcoming events over the next 30 days. Event names/times are shown; invitee contact data is kept in Calendly. Native athlete/session management is available through the existing `/coach` and `/coach/schedule` panels; native athlete data is not connected to this dashboard.
+
+Payments require independent `COACH_TAE_STRIPE_READ_KEY` / `COACH_TAE_STRIPE_ACCOUNT_ID` and `DMV_ATTACK_STRIPE_READ_KEY` / `DMV_ATTACK_STRIPE_ACCOUNT_ID`. Use restricted read keys with account, charges and payment-intent read permissions. Account identity is checked before any revenue or payment-status read. Identical credentials, identical account IDs and mismatched identities fail closed. Revenue means captured charges less refunds in the last 30 days, separated by currency. Payment status shows the latest 20 payment intents, including failed/pending states; it is not a revenue total. Payment accounts are never combined.
+
+DMV database reads require the existing `DMV_ATTACK_SUPABASE_URL` and a separately scoped server-only `DMV_ATTACK_SUPABASE_READ_KEY`. Field allowlists cover athlete names/age group, registration payment status, team names and the existing fee ledger. Reads paginate and fail rather than reporting incomplete totals. The dashboard does not read health records, guardian contacts or evaluations. Changes, assignments, offers and fee adjustments continue in DMV administration. Tournament dates are a labeled snapshot of the repository's existing 2027 organization schedule; confirm details in `/admin/schedule`.
+
+NOVA uses `https://www.novasportslive.com/api/football/status` without an admin credential. It reports published verified finals, overdue results, data review counts, calculation age and playoff-watch coverage. A calculation older than 36 hours triggers an alert. Official playoff seeds remain explicitly unverified when the source says so. Deployment/workflow/uptime reporting reuses existing adapters and configuration. Failed workflows/deployments and down samples generate in-app alerts; missing monitoring is never described as success. Push notifications and private score editing are not connected.
+
+All business pages enforce the owner session. No data is cached in a service worker or local storage. Home-screen installation uses the web manifest and Apple icon. A network connection is required. Provider failures render as unavailable, not zero. Browser tests use explicitly loaded fixtures and do not establish that production credentials work.
+
+## Audited access limits, October 29, 2026
+
+The existing Command Center production project has only the core auth/database/cron variables. The business Vercel projects have Stripe/database credentials marked `sensitive`, which are write-only and cannot be reused by copying through the connected API. No Calendly token/user URI is configured in those projects. The connected Supabase account lists Coach Tae staging and Crestlane Command Center projects, not DMV or the dedicated original Command Center database. Do not point this app's authentication at those unrelated projects. Configure scoped business read credentials in this existing Command Center deployment to enable the unavailable panels; never paste them into chat or source.

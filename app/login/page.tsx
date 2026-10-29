@@ -46,8 +46,7 @@ export default async function Login() {
           <p className="muted">Sign in to your Digital Command Center.</p>
           <LoginForm />
           <p className="login-footnote">
-            Owner access only. Secured with Supabase Auth. Sessions last up to 1
-            hour.
+            Owner access only. Secured with Supabase Auth. Secure sessions renew for up to 30 days on this device.
           </p>
         </div>
         <span className="login-copyright">

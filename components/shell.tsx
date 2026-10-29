@@ -1,6 +1,10 @@
 import Link from "next/link";
 import {
   LayoutDashboard,
+  CalendarDays,
+  CreditCard,
+  Bell,
+  BriefcaseBusiness,
   Globe2,
   SlidersHorizontal,
   ArrowUpRight,
@@ -35,27 +39,45 @@ export function Shell({
           WORKSPACE <span>PRIVATE</span>
         </div>
         <nav aria-label="Main navigation">
+          {[
+            ["overview", "/", "Overview", LayoutDashboard],
+            ["businesses", "/businesses", "Businesses", BriefcaseBusiness],
+            ["calendar", "/calendar", "Calendar", CalendarDays],
+            ["payments", "/payments", "Payments", CreditCard],
+            ["alerts", "/alerts", "Alerts", Bell],
+          ].map(([key, href, label, Icon]) => {
+            const NavIcon = Icon as typeof LayoutDashboard;
+            return (
+              <Link
+                key={String(key)}
+                href={String(href)}
+                className={active === key ? "nav-link active" : "nav-link"}
+                aria-current={active === key ? "page" : undefined}
+              >
+                <NavIcon size={19} />
+                <span>{String(label)}</span>
+              </Link>
+            );
+          })}
           <Link
-            className={active === "overview" ? "nav-link active" : "nav-link"}
-            href="/"
-          >
-            <LayoutDashboard size={17} />
-            Overview
-            <ChevronRight size={14} className="nav-arrow" />
-          </Link>
-          <Link
-            className={active === "sites" ? "nav-link active" : "nav-link"}
+            className={
+              active === "sites"
+                ? "nav-link active auxiliary"
+                : "nav-link auxiliary"
+            }
             href="/sites"
           >
-            <Globe2 size={17} />
-            All websites
+            <Globe2 size={17} /> All websites
           </Link>
           <Link
-            className={active === "settings" ? "nav-link active" : "nav-link"}
+            className={
+              active === "settings"
+                ? "nav-link active auxiliary"
+                : "nav-link auxiliary"
+            }
             href="/settings"
           >
-            <SlidersHorizontal size={17} />
-            Connections
+            <SlidersHorizontal size={17} /> Connections
           </Link>
         </nav>
         <div className="sidebar-note">
@@ -86,7 +108,7 @@ export function Shell({
                 ? "Connections"
                 : active === "sites"
                   ? "Websites"
-                  : "Overview"}
+                  : active.charAt(0).toUpperCase() + active.slice(1)}
             </span>
           </div>
           <div className="topbar-right">

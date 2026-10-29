@@ -252,8 +252,9 @@ test("Stripe sums only captured successful payments, separates currencies and su
   const r = await payments(
     site,
     range,
-    { DMV_ATTACK_STRIPE_READ_KEY: "test-key" },
-    async () => {
+    { DMV_ATTACK_STRIPE_READ_KEY: "test-key", DMV_ATTACK_STRIPE_ACCOUNT_ID: "acct_dmv" },
+    async (url) => {
+      if (String(url).endsWith("/account")) return response({ id: "acct_dmv" });
       calls++;
       return response({
         data: [

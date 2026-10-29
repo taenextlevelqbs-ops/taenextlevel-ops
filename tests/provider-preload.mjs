@@ -4,11 +4,14 @@ const nativeFetch = globalThis.fetch;
 let attempts = 0;
 globalThis.fetch = async (url, options = {}) => {
   const address = String(url);
+  if (address === "https://www.novasportslive.com/api/football/status")
+    return Response.json({ error: "fixture disconnected" }, { status: 503 });
   if (!address.startsWith("https://command-test.supabase.co/"))
     return nativeFetch(url, options);
   if (address.includes("/auth/v1/token")) {
     const body = JSON.parse(options.body);
-    return body.password === "browser-test-password-only"
+    return body.password === "browser-test-password-only" ||
+      body.refresh_token === "test-refresh-never-exposed"
       ? Response.json({
           user: {
             id: "00000000-0000-4000-8000-000000000001",
